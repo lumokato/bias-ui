@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import os
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FC
 
 
 def calibration(img_path_l, img_path_r=None):
@@ -217,7 +218,7 @@ def multi_bias_data(calib_data_id, cam_par0, cam_par1, pic_l, pic_r):
     return diff_single, std_single, bias_list
 
 
-def plot_bias_simple(path_l, path_r, pathc_l, pathc_r, fig):
+def plot_bias_simple(path_l, path_r, pathc_l, pathc_r, fig1, fig2):
     """
     简略绘图过程, 返回显示在textBrowser上的内容
     """
@@ -228,17 +229,16 @@ def plot_bias_simple(path_l, path_r, pathc_l, pathc_r, fig):
     text_show = "<font size=\"4\">" + "标定误差: e="+str(round(error, 3)) + "</font><br/>"
     text_show += '<br/>每张图片重投影误差均值与标准差:<br/>'
     bias_total = np.array([[], [], [], [], []])
-    ax1 = fig.add_subplot(211)
+    ax1 = fig1.add_subplot(111)
     ax1.set_xticks([-0.6, -0.3, 0, 0.3, 0.6])
     ax1.set_yticks([-0.6, -0.3, 0, 0.3, 0.6])
     ax1.axis([-0.6, 0.6, -0.6, 0.6])
     ax1.grid()
-    ax2 = fig.add_subplot(212)
+    ax2 = fig2.add_subplot(111)
     ax2.axis([0, 4096, 0, 2160])
     plt.subplots_adjust(left=None, bottom=None, right=None,
                         top=None, wspace=0.3, hspace=0.3)
     diff_total = []
-    # single_or_multi = 'single'
     for index in range(20):
         try:
             if pathc_l:
@@ -246,7 +246,6 @@ def plot_bias_simple(path_l, path_r, pathc_l, pathc_r, fig):
                 pic_l = img_list[index]
                 pic_index = int(pic_l[-6:-4])
                 if pathc_r:
-                    # single_or_multi = 'multi'
                     pic_r = pathc_r + os.path.basename(img_list[index])
                     diff_single, std_single, bias_list = multi_bias_data(
                         calib_data_id, cam_par0, cam_par1, pic_l, pic_r)
@@ -268,7 +267,7 @@ def plot_bias_simple(path_l, path_r, pathc_l, pathc_r, fig):
             scale = [40*max(i-0.1, 0) for i in bias_list[4]]
             ax2.scatter(bias_list[1], bias_list[0], s=scale)
         except Exception:
-            break
+            break  
     return text_show
     # ax1.set_xlabel("标志点行坐标")
     # ax1.set_ylabel("重投影误差")

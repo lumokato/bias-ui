@@ -6,59 +6,34 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1215</width>
-    <height>920</height>
+    <width>1089</width>
+    <height>927</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>标定检测</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QPushButton" name="draw_btn">
+   <widget class="QPushButton" name="draw_multi">
     <property name="geometry">
      <rect>
-      <x>50</x>
-      <y>460</y>
-      <width>111</width>
-      <height>101</height>
+      <x>80</x>
+      <y>140</y>
+      <width>131</width>
+      <height>51</height>
      </rect>
     </property>
     <property name="text">
-     <string>生成</string>
+     <string>双目误差</string>
     </property>
-   </widget>
-   <widget class="QComboBox" name="comboBox">
-    <property name="geometry">
-     <rect>
-      <x>50</x>
-      <y>240</y>
-      <width>111</width>
-      <height>101</height>
-     </rect>
-    </property>
-    <item>
-     <property name="text">
-      <string>双目</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>单目/左</string>
-     </property>
-    </item>
-    <item>
-     <property name="text">
-      <string>单目/右</string>
-     </property>
-    </item>
    </widget>
    <widget class="QPushButton" name="path_btn">
     <property name="geometry">
      <rect>
-      <x>50</x>
-      <y>50</y>
-      <width>111</width>
-      <height>101</height>
+      <x>80</x>
+      <y>20</y>
+      <width>131</width>
+      <height>51</height>
      </rect>
     </property>
     <property name="styleSheet">
@@ -71,33 +46,70 @@
    <widget class="QWidget" name="verticalLayoutWidget">
     <property name="geometry">
      <rect>
-      <x>210</x>
-      <y>120</y>
-      <width>661</width>
-      <height>741</height>
+      <x>80</x>
+      <y>500</y>
+      <width>621</width>
+      <height>371</height>
      </rect>
     </property>
-    <layout class="QVBoxLayout" name="verticalLayout"/>
+    <layout class="QVBoxLayout" name="figLayout2"/>
    </widget>
    <widget class="QLineEdit" name="lineEdit">
     <property name="geometry">
      <rect>
-      <x>210</x>
-      <y>50</y>
-      <width>501</width>
-      <height>41</height>
+      <x>270</x>
+      <y>20</y>
+      <width>431</width>
+      <height>51</height>
      </rect>
     </property>
    </widget>
    <widget class="QTextBrowser" name="textBrowser">
     <property name="geometry">
      <rect>
-      <x>890</x>
-      <y>120</y>
+      <x>740</x>
+      <y>20</y>
       <width>261</width>
-      <height>741</height>
+      <height>851</height>
      </rect>
     </property>
+   </widget>
+   <widget class="QPushButton" name="draw_left">
+    <property name="geometry">
+     <rect>
+      <x>80</x>
+      <y>260</y>
+      <width>131</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>单目误差/左</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="draw_right">
+    <property name="geometry">
+     <rect>
+      <x>80</x>
+      <y>380</y>
+      <width>131</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>单目误差/右</string>
+    </property>
+   </widget>
+   <widget class="QWidget" name="verticalLayoutWidget_2">
+    <property name="geometry">
+     <rect>
+      <x>270</x>
+      <y>100</y>
+      <width>431</width>
+      <height>371</height>
+     </rect>
+    </property>
+    <layout class="QVBoxLayout" name="figLayout1"/>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -105,7 +117,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1215</width>
+     <width>1089</width>
      <height>22</height>
     </rect>
    </property>
@@ -130,7 +142,7 @@
    </hints>
   </connection>
   <connection>
-   <sender>draw_btn</sender>
+   <sender>draw_multi</sender>
    <signal>clicked()</signal>
    <receiver>MainWindow</receiver>
    <slot>draw_cmd()</slot>
@@ -142,6 +154,38 @@
     <hint type="destinationlabel">
      <x>387</x>
      <y>240</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>draw_left</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>draw_cmd()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>105</x>
+     <y>417</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>607</x>
+     <y>459</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>draw_right</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>draw_cmd()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>105</x>
+     <y>577</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>607</x>
+     <y>459</y>
     </hint>
    </hints>
   </connection>
