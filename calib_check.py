@@ -3,10 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import os
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FC
+# from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FC
 
 
-def calibration(img_path_l, img_path_r=None):
+def calibration(img_path_l, img_path_r=None, model=False):
     """
     根据路径进行双目/单目标定
 
@@ -45,6 +45,84 @@ def calibration(img_path_l, img_path_r=None):
     # 标定过程
     num_ignored_img = 0
     for PoseIndex in range(num_poses):
+        for CameraIndex in range(num_cameras):
+            if CameraIndex == 0:
+                file_name = img_l[PoseIndex]
+            else:
+                file_name = img_r[PoseIndex]
+            image = ha.read_image(file_name)
+            # 提取标志点
+            try:
+                ha.find_calib_object(image, calib_data_id,
+                                     CameraIndex, 0, PoseIndex, [], [])
+                ha.get_calib_data_observ_contours(
+                    calib_data_id, 'caltab', CameraIndex, 0, PoseIndex)
+                ha.get_calib_data_observ_contours(
+                    calib_data_id, 'marks', CameraIndex, 0, PoseIndex)
+                # ha.dev_display(Caltab)
+            except ha.ffi.HOperatorError:
+                num_ignored_img = num_ignored_img + 1
+    try:
+        error = ha.calibrate_cameras(calib_data_id)
+        if model:
+            # 创建相机安装模型
+            CameraSetupModelID = ha.get_calib_data(
+                calib_data_id, 'model', 'general', 'camera_setup_model')
+            RefPoseIndex = 2
+            PoseCam0Index0 = ha.get_calib_data(
+                calib_data_id, 'calib_obj_pose', [0, RefPoseIndex], 'pose')
+            PoseInvert = ha.pose_invert(PoseCam0Index0)
+            ReferencePose = ha.set_origin_pose(PoseInvert, 0, 0, 0.001)
+            ha.set_camera_setup_param(
+                CameraSetupModelID, 'general', 'coord_transf_pose', ReferencePose)
+            ha.write_camera_setup_model(
+                CameraSetupModelID, 'Two_camera_setup_model.csm')
+
+        return calib_data_id, error
+    except ha.ffi.HOperatorError:
+        print('标定失败')
+
+
+def calibration_single(img_path_l, img_path_r, cam_par0, cam_par1, index):
+    """
+    根据路径进行单张标定
+
+    输入参数
+    ----
+
+    img_path_l, img_path_r: 相机标定文件路径
+
+    cam_par0, cam_par1: 已知相机内参
+
+    index: 选定的参考位置序号
+
+    返回值
+    ---
+    calib_data_id, error: Halcon标定模型与误差
+    """
+    # 获取图片像素尺寸
+    file_name_l = img_path_l + 'image_01'
+    image = ha.read_image(file_name_l)
+    width, height = ha.get_image_size(image)
+    # scale = .1
+    # 读取标定板与标定图像路径
+    caltab_descr = 'XJcaltabNew_410_235mm.cpd'
+    # caltab_thickness = 0.001
+    num_calib_objects = 1
+    img_l = glob.glob(pathname=img_path_l + '*.png')
+    img_r = glob.glob(pathname=img_path_r + '*.png')
+    num_cameras = 2
+    # 初始化标定模型
+    calib_data_id = ha.create_calib_data(
+        'calibration_object', num_cameras, num_calib_objects)
+    ha.set_calib_data_cam_param(
+        calib_data_id, 0, 'area_scan_polynomial', cam_par0)
+    ha.set_calib_data_cam_param(
+        calib_data_id, 1, 'area_scan_polynomial', cam_par1)
+    ha.set_calib_data_calib_object(calib_data_id, 0, caltab_descr)
+    # 标定过程
+    num_ignored_img = 0
+    for PoseIndex in [index-1]:
         for CameraIndex in range(num_cameras):
             if CameraIndex == 0:
                 file_name = img_l[PoseIndex]
@@ -161,35 +239,32 @@ def single_bias_data(calib_data_id, cam_par, pic):
     return diff_single, std_single, bias_list
 
 
-def multi_bias_data(calib_data_id, cam_par0, cam_par1, pic_l, pic_r):
+def multi_bias_data(cam_par0, cam_par1, cam_pose0, cam_pose1, pic_l, pic_r):
     """
     计算每张图片双目重投影误差的偏差分布
     """
     # 读取检测图片信息
-    calib_single = calibration_pose(pic_l, cam_par0)
+    calib_single0 = calibration_pose(pic_l, cam_par0)
     pose = ha.get_calib_data(
-        calib_single, 'calib_obj_pose', [0, 0], 'init_pose')
+        calib_single0, 'calib_obj_pose', [0, 0], 'init_pose')
     RCoord, CCoord, Index, pose0 = ha.get_calib_data_observ_points(
-        calib_single, 0, 0, 0)
-    calib_single = calibration_pose(pic_r, cam_par1)
-    # poser = ha.get_calib_data(calib_single, 'calib_obj_pose', [0, 0], 'init_pose')
+        calib_single0, 0, 0, 0)
+    calib_single1 = calibration_pose(pic_r, cam_par1)
     RCoord1, CCoord1, Index1, pose0 = ha.get_calib_data_observ_points(
-        calib_single, 0, 0, 0)
-    # RCoord, CCoord, Index, pose0 = ha.get_calib_data_observ_points(calib_data_id, 0, 0, pic)
-    # pose = ha.get_calib_data(calib_data_id, 'calib_obj_pose', [0, pic], 'pose')
-    cam_pose = ha.get_calib_data(calib_data_id, 'camera', 1, 'pose')
-    # RCoord1, CCoord1, Index1, pose1 = ha.get_calib_data_observ_points(calib_data_id, 1, 0, pic)
-
-    cam0_hom_wcs = ha.pose_to_hom_mat3d(pose)
-    cam0_hom_cam1 = ha.pose_to_hom_mat3d(cam_pose)
+        calib_single1, 0, 0, 0)
+    # 计算两相机之间位置矩阵
+    cam0_hom_wcs = ha.pose_to_hom_mat3d(cam_pose0)
+    cam1_hom_wcs = ha.pose_to_hom_mat3d(cam_pose1)
+    wcs_hom_cam0 = ha.hom_mat3d_invert(cam0_hom_wcs)
+    cam0_hom_cam1 = ha.hom_mat3d_compose(wcs_hom_cam0, cam1_hom_wcs)
     cam1_hom_cam0 = ha.hom_mat3d_invert(cam0_hom_cam1)
-    cam1_hom_wcs = ha.hom_mat3d_compose(cam1_hom_cam0, cam0_hom_wcs)
-
+    # 计算标定板与右相机之间位置矩阵
+    calib_hom_cam0 = ha.pose_to_hom_mat3d(pose)
+    calib_hom_cam1 = ha.hom_mat3d_compose(cam1_hom_cam0, calib_hom_cam0)
     world_x, world_y = ha.image_points_to_world_plane(
         cam_par0, pose, RCoord, CCoord, 'm')
     world_z = [0] * len(world_x)
-
-    x, y, z = ha.affine_trans_point_3d(cam1_hom_wcs, world_x, world_y, world_z)
+    x, y, z = ha.affine_trans_point_3d(calib_hom_cam1, world_x, world_y, world_z)
     RCoordX, CCoordX = ha.project_3d_point(x, y, z, cam_par1)
     # 计算偏差
     deltaR = np.array([])
@@ -208,25 +283,75 @@ def multi_bias_data(calib_data_id, cam_par0, cam_par1, pic_l, pic_r):
                 CCoord_co = np.append(CCoord_co, CCoord[i])
         except Exception:
             continue
-    # deltaR = np.array(RCoordX) - np.array(RCoord1)
-    # deltaC = np.array(CCoordX) - np.array(CCoord1)
     diff = np.sqrt(deltaR*deltaR+deltaC*deltaC)
     bias_list = np.array([RCoord_co, CCoord_co, deltaR, deltaC, diff])
-    # print(np.mean(deltaR),np.mean(deltaC),np.mean(diff))
     diff_single = np.sqrt(np.mean(deltaR)**2+np.mean(deltaC)**2)
     std_single = np.sqrt(np.std(deltaR, ddof=1)**2+np.std(deltaC, ddof=1)**2)
     return diff_single, std_single, bias_list
 
 
-def plot_bias_simple(path_l, path_r, pathc_l, pathc_r, fig1, fig2):
+def multi_bias_data_pose(cam_par0, cam_par1, cam_pose0, cam_pose1, pic_l, pic_r):
+    """
+    计算每张图片外参误差的偏差分布
+    """
+    # 读取检测图片信息
+    calib_single = calibration_pose(pic_l, cam_par0)
+    pose0 = ha.get_calib_data(
+        calib_single, 'calib_obj_pose', [0, 0], 'init_pose')
+    RCoord, CCoord, Index, posen = ha.get_calib_data_observ_points(
+        calib_single, 0, 0, 0)
+    calib_single = calibration_pose(pic_r, cam_par1)
+    pose1 = ha.get_calib_data(
+        calib_single, 'calib_obj_pose', [0, 0], 'init_pose')
+    # cam_pose0 = [0, 0, 0, 0, 0, 0, 0]
+    # 相机重投影
+    X = ha.get_calib_data(calib_single, 'calib_obj', 0, 'x')
+    Y = ha.get_calib_data(calib_single, 'calib_obj', 0, 'y')
+    RCoordX, CCoordX = wcs_to_img(pose1, cam_pose0, X, Y, len(X), cam_par1)
+    RCoord1, CCoord1 = wcs_to_img(pose0, cam_pose1, X, Y, len(X), cam_par1)
+    # 计算偏差
+    deltaR = np.array([])
+    deltaC = np.array([])
+    RCoord_co = np.array([])
+    CCoord_co = np.array([])
+    for i in range(len(Index)):
+        try:
+            deltaR = np.append(deltaR, RCoord1[Index[i]] - RCoordX[Index[i]])
+            deltaC = np.append(deltaC, CCoord1[Index[i]] - CCoordX[Index[i]])
+            RCoord_co = np.append(RCoord_co, RCoord[i])
+            CCoord_co = np.append(CCoord_co, CCoord[i])
+        except Exception:
+            continue
+    diff = np.sqrt(deltaR*deltaR+deltaC*deltaC)
+    bias_list = np.array([RCoord_co, CCoord_co, deltaR, deltaC, diff])
+    diff_single = np.sqrt(np.mean(deltaR)**2+np.mean(deltaC)**2)
+    std_single = np.sqrt(np.std(deltaR, ddof=1)**2+np.std(deltaC, ddof=1)**2)
+    return diff_single, std_single, bias_list
+
+
+def plot_bias_simple(model_or_path, pathc_l, pathc_r, img_index, fig1, fig2, outer=False):
     """
     简略绘图过程, 返回显示在textBrowser上的内容
     """
-    calib_data_id, error = calibration(path_l, path_r)
-    cam_par0 = ha.get_calib_data(calib_data_id, 'camera', 0, 'params')
-    cam_par1 = ha.get_calib_data(calib_data_id, 'camera', 1, 'params')
-    # num_cameras = ha.get_calib_data(calib_data_id, 'model', 'general', ['num_cameras'])[0]
-    text_show = "<font size=\"4\">" + "标定误差: e="+str(round(error, 3)) + "</font><br/>"
+    if model_or_path[0] == 'model':
+        calib_model_id = ha.read_camera_setup_model(model_or_path[1])
+        error = ha.get_camera_setup_param(
+            calib_model_id, 'general', 'camera_calib_error')[0]
+        cam_par0 = ha.get_camera_setup_param(calib_model_id, 0, 'params')
+        cam_par1 = ha.get_camera_setup_param(calib_model_id, 1, 'params')
+        cam_pose0 = ha.get_camera_setup_param(calib_model_id, 0, 'pose')
+        cam_pose1 = ha.get_camera_setup_param(calib_model_id, 1, 'pose')
+
+    else:
+        path_l = model_or_path[1]
+        path_r = model_or_path[2]
+        calib_data_id, error = calibration(path_l, path_r, model=True)
+        cam_par0 = ha.get_calib_data(calib_data_id, 'camera', 0, 'params')
+        cam_par1 = ha.get_calib_data(calib_data_id, 'camera', 1, 'params')
+        cam_pose0 = ha.get_calib_data(calib_data_id, 'camera', 0, 'pose')
+        cam_pose1 = ha.get_calib_data(calib_data_id, 'camera', 1, 'pose')
+    text_show = "<font size=\"4\">" + "标定误差: e=" + \
+        str(round(error, 3)) + "</font><br/>"
     text_show += '<br/>每张图片重投影误差均值与标准差:<br/>'
     bias_total = np.array([[], [], [], [], []])
     ax1 = fig1.add_subplot(111)
@@ -247,8 +372,12 @@ def plot_bias_simple(path_l, path_r, pathc_l, pathc_r, fig1, fig2):
                 pic_index = int(pic_l[-6:-4])
                 if pathc_r:
                     pic_r = pathc_r + os.path.basename(img_list[index])
-                    diff_single, std_single, bias_list = multi_bias_data(
-                        calib_data_id, cam_par0, cam_par1, pic_l, pic_r)
+                    if outer:
+                        diff_single, std_single, bias_list = multi_bias_data(
+                            cam_par0, cam_par1, cam_pose0, cam_pose1, pic_l, pic_r)
+                    else:
+                        diff_single, std_single, bias_list = multi_bias_data_pose(
+                            cam_par0, cam_par1, cam_pose0, cam_pose1, pic_l, pic_r)
                 else:
                     diff_single, std_single, bias_list = single_bias_data(
                         calib_data_id, cam_par0, pic_l)
@@ -260,14 +389,16 @@ def plot_bias_simple(path_l, path_r, pathc_l, pathc_r, fig1, fig2):
                     calib_data_id, cam_par1, pic_r)
             diff_color = "black" if diff_single < 0.2 else "red" if diff_single > 0.4 else "blue"
             std_color = "black" if std_single < 0.2 else "red" if std_single > 0.4 else "blue"
-            text_show += str(pic_index) + ': <font color=\"' + diff_color + '\">M=' + str(round(diff_single, 3)) + '</font> <font color=\"' + std_color + '\">s=' + str(round(std_single, 3)) + '</font><br/>'
+            text_show += str(pic_index) + ': <font color=\"' + diff_color + '\">M=' + str(round(diff_single, 3)) + \
+                '</font> <font color=\"' + std_color + '\">s=' + \
+                str(round(std_single, 3)) + '</font><br/>'
             diff_total.append(diff_single)
             bias_total = np.concatenate((bias_total, bias_list), axis=1)
             ax1.scatter(bias_list[2], bias_list[3],  s=6)
             scale = [40*max(i-0.1, 0) for i in bias_list[4]]
             ax2.scatter(bias_list[1], bias_list[0], s=scale)
         except Exception:
-            break  
+            break
     return text_show
     # ax1.set_xlabel("标志点行坐标")
     # ax1.set_ylabel("重投影误差")
